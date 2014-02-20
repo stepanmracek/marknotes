@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/styles">
+        <file>github.css</file>
+        <file>simple.css</file>
+    </qresource>
+</RCC>
