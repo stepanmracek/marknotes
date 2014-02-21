@@ -18,7 +18,6 @@ MainWindow::MainWindow(const QString &dir, QWidget *parent) :
     //stylesheet.open(QFile::ReadOnly);
     //ui->textBrowser->document()->setDefaultStyleSheet(QTextStream(&stylesheet).readAll());
 
-    //baseDirectory = "/home/stepo/Dropbox/notes/notes";
     ui->plainTextEdit->setVisible(false);
     loadDirectory(dir);
 }
@@ -30,16 +29,6 @@ MainWindow::~MainWindow()
 
 void MainWindow::browseDirectory(const QString &path, QList<QTreeWidgetItem *> &result)
 {
-    qDebug() << "entering" << path;
-    /*
-        QDir dir(path + QDir::separator() + fInfo.baseName());
-        if (dir.exists())
-        {
-            QList<QTreeWidgetItem *> items;
-            browseDirectory(dir.absolutePath(), items);
-            item->addChildren(items);
-        }*/
-
     QDir dir(path);
     QFileInfoList directories = dir.entryInfoList(QStringList(), QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
     foreach (const QFileInfo &dirInfo, directories)
@@ -124,16 +113,16 @@ void MainWindow::loadNote(const QString &path)
 
 void MainWindow::loadNote(QTreeWidgetItem *item)
 {
-    bool isNote = item->data(0, Qt::UserRole).toBool();
-    if (!isNote)
+    if (!isNoteSelected())
     {
-        qDebug() << "Directory selected";
         ui->plainTextEdit->clear();
+        ui->plainTextEdit->setEnabled(false);
         currentNote.clear();
         currentNoteChanged = false;
         return;
     }
 
+    ui->plainTextEdit->setEnabled(true);
     QStringList parentPath = getPath(item);
     QString fullPath = baseDirectory + createPath(parentPath);
     fullPath += QDir::separator() + item->text(0) + ".md";
@@ -142,34 +131,33 @@ void MainWindow::loadNote(QTreeWidgetItem *item)
 
 void MainWindow::handleButtons()
 {
-    bool enabled = ui->treeWidget->selectedItems().count() > 0;
+    bool enabled = isSomeItemSelected();
     ui->plainTextEdit->setEnabled(enabled);
-
-    bool isNoteSelected = enabled && ui->treeWidget->selectedItems().front()->data(0, Qt::UserRole).toBool();
-    ui->pbProperties->setEnabled(isNoteSelected);
-    ui->pbRemove->setEnabled(isNoteSelected);
-
-    //ui->pbRemoveNote->setEnabled(false /*enabled*/);
+    ui->pbProperties->setEnabled(enabled);
+    ui->pbRemove->setEnabled(enabled);
 }
 
 void MainWindow::on_treeWidget_itemSelectionChanged()
 {
     handleButtons();
     saveCurrentNote();
-    if (ui->treeWidget->selectedItems().count() != 1) return;
-
+    if (!isSomeItemSelected()) return;
     QTreeWidgetItem *item = ui->treeWidget->selectedItems().front();
     loadNote(item);
 }
 
+void MainWindow::saveSettings()
+{
+    QSettings settings("stepan.mracek", "marknotes");
+    settings.setValue("dir", baseDirectory);
+}
 
 void MainWindow::on_pbLoad_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this, "Select notes directory", baseDirectory);
     if (dir.isEmpty()) return;
 
-    QSettings settings("stepan.mracek", "marknotes");
-    settings.setValue("dir", dir);
+    saveCurrentNote();
     loadDirectory(dir);
 }
 
@@ -201,7 +189,8 @@ void MainWindow::on_pbNewNote_clicked()
     saveCurrentNote();
 
     bool ok;
-    QString name = QInputDialog::getText(this, tr("Add new note"), tr("Enter new note name"), QLineEdit::Normal, QString(), &ok);
+    QString name = QInputDialog::getText(this, tr("Add new note"), tr("Enter new note name"),
+                                         QLineEdit::Normal, QString(), &ok);
     if (!ok) return;
 
     QString selectedFolder;
@@ -231,7 +220,7 @@ void MainWindow::on_pbNewNote_clicked()
     loadDirectory(baseDirectory);
 }
 
-void MainWindow::closeEvent(QCloseEvent *e)
+void MainWindow::closeEvent(QCloseEvent *)
 {
     saveCurrentNote();
 }
@@ -243,19 +232,26 @@ void MainWindow::on_pbEditNote_toggled(bool checked)
     ui->textBrowser->setVisible(!checked);
 }
 
+QTreeWidgetItem * MainWindow::selectedItem()
+{
+    if (isSomeItemSelected()) return ui->treeWidget->selectedItems().front();
+    return 0;
+}
+
 void MainWindow::on_pbNewFolder_clicked()
 {
     saveCurrentNote();
 
     bool ok;
-    QString name = QInputDialog::getText(this, tr("Add new note"), tr("Enter new note name"), QLineEdit::Normal, QString(), &ok);
+    QString name = QInputDialog::getText(this, tr("Add new note"), tr("Enter new note name"),
+                                         QLineEdit::Normal, QString(), &ok);
     if (!ok) return;
 
     QString selectedFolder;
-    if (ui->treeWidget->selectedItems().count() > 0)
+    if (isSomeItemSelected())
     {
-        QTreeWidgetItem * selItem = ui->treeWidget->selectedItems().front();
-        bool folder = !selItem ->data(0, Qt::UserRole).toBool();
+        QTreeWidgetItem * selItem = selectedItem();
+        bool folder = !isNoteSelected();
         if (folder)
         {
             selectedFolder = QDir::separator() + selItem->text(0);
@@ -277,14 +273,23 @@ void MainWindow::on_pbNewFolder_clicked()
     loadDirectory(baseDirectory);
 }
 
-void MainWindow::on_pbProperties_clicked()
+bool MainWindow::isSomeItemSelected()
 {
-    saveCurrentNote();
+    return ui->treeWidget->selectedItems().count() > 0;
+}
 
+bool MainWindow::isNoteSelected()
+{
+    QList<QTreeWidgetItem*> selItems = ui->treeWidget->selectedItems();
+    return ((selItems.count() > 0) && (selItems.front()->data(0, Qt::UserRole).toBool()));
+}
+
+bool MainWindow::renameCurrentNote()
+{
     bool ok;
     QString name = QInputDialog::getText(this, tr("Rename note"), tr("Enter new note name"),
-                                         QLineEdit::Normal, QString(), &ok);
-    if (!ok) return;
+                                         QLineEdit::Normal, selectedItem()->text(0), &ok);
+    if (!ok) return false;
 
     QFileInfo info(currentNote);
     QString sourceName = currentNote;
@@ -296,21 +301,103 @@ void MainWindow::on_pbProperties_clicked()
 
     if (QFile(destName).exists())
     {
-        QMessageBox::information(this, tr("Information"), tr("File or folder already exists"));
-        return;
+        QMessageBox::information(this, tr("Information"), tr("Note already exists"));
+        return false;
     }
 
-    QFile::rename(sourceName, destName);
-    loadDirectory(baseDirectory);
+    return QFile::rename(sourceName, destName);
+}
+
+bool MainWindow::renameCurrentFolder()
+{
+    bool ok;
+    QString name = QInputDialog::getText(this, tr("Rename Folder"), tr("Enter new folder name"),
+                                         QLineEdit::Normal, selectedItem()->text(0), &ok);
+    if (!ok) return false;
+
+    QString commonPath = baseDirectory + createPath(getPathOfSelectedItem()) + QDir::separator();
+    QString sourcePath = commonPath + selectedItem()->text(0);
+    QString destPath = commonPath + name;
+    qDebug() << sourcePath;
+
+    if (QFile(destPath).exists())
+    {
+        QMessageBox::information(this, tr("Information"), tr("File or folder already exists"));
+        return false;
+    }
+
+    return QFile::rename(sourcePath, destPath);
+}
+
+void MainWindow::on_pbProperties_clicked()
+{
+    if (!isSomeItemSelected()) return;
+
+    saveCurrentNote();
+
+    bool result = isNoteSelected() ? renameCurrentNote() : renameCurrentFolder();
+
+    if (result)
+    {
+        loadDirectory(baseDirectory);
+    }
+}
+
+bool MainWindow::removeDirectory(const QString &path)
+{
+    bool result = true;
+    QDir dir(path);
+
+    if (dir.exists(path))
+    {
+        foreach(const QFileInfo &info, dir.entryInfoList(QDir::NoDotAndDotDot | QDir::System | QDir::Hidden |
+                                                         QDir::AllDirs | QDir::Files, QDir::DirsFirst))
+        {
+            if (info.isDir())
+            {
+                result = removeDirectory(info.absoluteFilePath());
+            }
+            else
+            {
+                result = QFile::remove(info.absoluteFilePath());
+            }
+
+            if (!result)
+            {
+                return result;
+            }
+        }
+        result = dir.rmdir(path);
+    }
+    return result;
 }
 
 void MainWindow::on_pbRemove_clicked()
 {
-    int button = QMessageBox::question(this, tr("Question"), tr("Delete current note?"),
+    if (!isSomeItemSelected()) return;
+
+    int button = QMessageBox::question(this, tr("Question"),
+                                       isNoteSelected() ? tr("Delete current note?")
+                                                        : tr("Delete current folder and all its content?"),
                                        QMessageBox::Yes | QMessageBox::No);
     if (button != QMessageBox::Yes) return;
 
-    qDebug() << "removing" << currentNote;
-    QFile::remove(currentNote);
-    loadDirectory(baseDirectory);
+    bool result;
+    if (isNoteSelected())
+    {
+        qDebug() << "removing" << currentNote;
+        result = QFile::remove(currentNote);
+    }
+    else
+    {
+        QString path = baseDirectory + createPath(getPathOfSelectedItem()) + QDir::separator() + selectedItem()->text(0);
+        qDebug() << "removing" << path;
+        result = removeDirectory(path);
+    }
+    qDebug() << "result:" << result;
+
+    if (result)
+    {
+        loadDirectory(baseDirectory);
+    }
 }

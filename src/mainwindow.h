@@ -45,7 +45,6 @@ private:
 
     void browseDirectory(const QString &path, QList<QTreeWidgetItem *> &result);
     void loadDirectory(const QString &dir);
-
     QStringList getPath(QTreeWidgetItem *item);
     QString createPath(QStringList path);
     void loadNote(const QString &path);
@@ -53,8 +52,14 @@ private:
     void saveCurrentNote();
     QStringList getPathOfSelectedItem();
     void handleButtons();
-    void closeEvent(QCloseEvent *e);
-
+    void closeEvent(QCloseEvent *);
+    void saveSettings();
+    bool isSomeItemSelected();
+    bool isNoteSelected();
+    QTreeWidgetItem *selectedItem();
+    bool renameCurrentNote();
+    bool renameCurrentFolder();
+    bool removeDirectory(const QString &path);
 };
 
 #endif // MAINWINDOW_H

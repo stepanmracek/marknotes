@@ -20,7 +20,7 @@
       <item>
        <widget class="QTreeWidget" name="treeWidget">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -67,7 +67,7 @@
            <enum>Qt::Horizontal</enum>
           </property>
           <property name="sizeType">
-           <enum>QSizePolicy::Minimum</enum>
+           <enum>QSizePolicy::Expanding</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -91,7 +91,9 @@
            <string/>
           </property>
           <property name="icon">
-           <iconset theme="text-editor"/>
+           <iconset theme="text-editor">
+            <normaloff/>
+           </iconset>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -107,7 +109,9 @@
            <string/>
           </property>
           <property name="icon">
-           <iconset theme="document-properties"/>
+           <iconset theme="document-properties">
+            <normaloff/>
+           </iconset>
           </property>
          </widget>
         </item>
@@ -117,7 +121,9 @@
            <string/>
           </property>
           <property name="icon">
-           <iconset theme="remove"/>
+           <iconset theme="remove">
+            <normaloff/>
+           </iconset>
           </property>
          </widget>
         </item>
