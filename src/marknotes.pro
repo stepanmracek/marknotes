@@ -22,4 +22,7 @@ HEADERS  += mainwindow.h \
 
 FORMS    += mainwindow.ui
 
-RESOURCES +=
+CODECFORTR = UTF-8
+
+TRANSLATIONS = marknotes_en.ts \
+               marknotes_cs.ts
